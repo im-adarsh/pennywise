@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:pennywise/services/member_service.dart';
+import 'package:pennywise/providers/member_provider.dart';
 import 'package:pennywise/models/household_member.dart';
 
-class AddMemberScreen extends StatefulWidget {
+class AddMemberScreen extends ConsumerStatefulWidget {
   final HouseholdMember? member;
 
   const AddMemberScreen({super.key, this.member});
 
   @override
-  State<AddMemberScreen> createState() => _AddMemberScreenState();
+  ConsumerState<AddMemberScreen> createState() => _AddMemberScreenState();
 }
 
-class _AddMemberScreenState extends State<AddMemberScreen> {
+class _AddMemberScreenState extends ConsumerState<AddMemberScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -43,9 +43,12 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
 
     setState(() => _isLoading = true);
 
-    final memberService = Provider.of<MemberService>(context, listen: false);
+    final memberService = ref.read(memberServiceProvider);
     final userId = memberService.userId;
-    if (userId == null) return;
+    if (userId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
     final member = HouseholdMember(
       id: widget.member?.id ?? const Uuid().v4(),
@@ -62,6 +65,8 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     } else {
       await memberService.addMember(member);
     }
+
+    ref.invalidate(membersProvider);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -97,8 +102,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
               // Email Field
               TextFormField(
                 controller: _emailController,
-                decoration:
-                    const InputDecoration(labelText: 'Email (Optional)'),
+                decoration: const InputDecoration(labelText: 'Email (Optional)'),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
@@ -106,8 +110,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
               // Phone Field
               TextFormField(
                 controller: _phoneController,
-                decoration:
-                    const InputDecoration(labelText: 'Phone (Optional)'),
+                decoration: const InputDecoration(labelText: 'Phone (Optional)'),
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 32),
@@ -124,8 +127,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(
-                        widget.member == null ? 'Add Member' : 'Update Member'),
+                    : Text(widget.member == null ? 'Add Member' : 'Update Member'),
               ),
             ],
           ),

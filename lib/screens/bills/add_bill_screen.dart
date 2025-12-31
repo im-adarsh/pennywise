@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:pennywise/services/bill_service.dart';
+import 'package:pennywise/providers/bill_provider.dart';
 import 'package:pennywise/models/bill.dart';
 
-class AddBillScreen extends StatefulWidget {
+class AddBillScreen extends ConsumerStatefulWidget {
   final Bill? bill;
 
   const AddBillScreen({super.key, this.bill});
 
   @override
-  State<AddBillScreen> createState() => _AddBillScreenState();
+  ConsumerState<AddBillScreen> createState() => _AddBillScreenState();
 }
 
-class _AddBillScreenState extends State<AddBillScreen> {
+class _AddBillScreenState extends ConsumerState<AddBillScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
@@ -48,9 +48,12 @@ class _AddBillScreenState extends State<AddBillScreen> {
 
     setState(() => _isLoading = true);
 
-    final billService = Provider.of<BillService>(context, listen: false);
+    final billService = ref.read(billServiceProvider);
     final userId = billService.userId;
-    if (userId == null) return;
+    if (userId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
     final bill = Bill(
       id: widget.bill?.id ?? const Uuid().v4(),
@@ -58,9 +61,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
       name: _nameController.text,
       amount: double.parse(_amountController.text),
       dayOfMonth: _selectedDay,
-      description: _descriptionController.text.isEmpty
-          ? null
-          : _descriptionController.text,
+      description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
       isActive: _isActive,
       createdAt: widget.bill?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
@@ -71,6 +72,8 @@ class _AddBillScreenState extends State<AddBillScreen> {
     } else {
       await billService.addBill(bill);
     }
+
+    ref.invalidate(billsProvider);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -110,14 +113,12 @@ class _AddBillScreenState extends State<AddBillScreen> {
                   labelText: 'Amount',
                   prefixText: '\$ ',
                 ),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter an amount';
                   }
-                  if (double.tryParse(value) == null ||
-                      double.parse(value) <= 0) {
+                  if (double.tryParse(value) == null || double.parse(value) <= 0) {
                     return 'Please enter a valid amount';
                   }
                   return null;
@@ -128,8 +129,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
               // Day of Month Selection
               DropdownButtonFormField<int>(
                 value: _selectedDay,
-                decoration:
-                    const InputDecoration(labelText: 'Due Day of Month'),
+                decoration: const InputDecoration(labelText: 'Due Day of Month'),
                 items: List.generate(31, (index) => index + 1).map((day) {
                   return DropdownMenuItem(
                     value: day,
@@ -147,8 +147,7 @@ class _AddBillScreenState extends State<AddBillScreen> {
               // Description Field
               TextFormField(
                 controller: _descriptionController,
-                decoration:
-                    const InputDecoration(labelText: 'Description (Optional)'),
+                decoration: const InputDecoration(labelText: 'Description (Optional)'),
                 maxLines: 3,
               ),
               const SizedBox(height: 16),

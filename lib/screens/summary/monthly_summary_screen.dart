@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:pennywise/services/expense_service.dart';
-import 'package:pennywise/services/member_service.dart';
+import 'package:getwidget/getwidget.dart';
+import 'package:pennywise/providers/expense_provider.dart';
+import 'package:pennywise/providers/member_provider.dart';
 import 'package:pennywise/services/export_service.dart';
 import 'package:pennywise/widgets/category_icon.dart';
 
-class MonthlySummaryScreen extends StatefulWidget {
+class MonthlySummaryScreen extends ConsumerStatefulWidget {
   const MonthlySummaryScreen({super.key});
 
   @override
-  State<MonthlySummaryScreen> createState() => _MonthlySummaryScreenState();
+  ConsumerState<MonthlySummaryScreen> createState() => _MonthlySummaryScreenState();
 }
 
-class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
+class _MonthlySummaryScreenState extends ConsumerState<MonthlySummaryScreen> {
   DateTime _selectedMonth = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
+    final expensesAsync = ref.watch(expensesProvider);
+    final membersAsync = ref.watch(membersProvider);
+    final expenseService = ref.watch(expenseServiceProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monthly Summary'),
@@ -67,177 +72,177 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
           // Summary Content
           Expanded(
-            child: Consumer2<ExpenseService, MemberService>(
-              builder: (context, expenseService, memberService, _) {
-                final monthExpenses =
-                    expenseService.getExpensesByMonth(_selectedMonth);
-                final total = expenseService.getTotalByMonth(_selectedMonth);
-                final categoryTotals =
-                    expenseService.getCategoryTotalsByMonth(_selectedMonth);
-                final memberTotals =
-                    _getMemberTotals(monthExpenses, memberService.members);
+            child: expensesAsync.when(
+              data: (expenses) => membersAsync.when(
+                data: (members) {
+                  final monthExpenses =
+                      expenseService.getExpensesByMonth(expenses, _selectedMonth);
+                  final total = expenseService.getTotalByMonth(expenses, _selectedMonth);
+                  final categoryTotals =
+                      expenseService.getCategoryTotalsByMonth(expenses, _selectedMonth);
+                  final memberTotals = _getMemberTotals(monthExpenses, members);
 
-                if (monthExpenses.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.bar_chart,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No expenses for this month',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // Total Card
-                    Card(
-                      color: Theme.of(context).colorScheme.primary,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Total Expenses',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '\$${total.toStringAsFixed(2)}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .displayMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${monthExpenses.length} expenses',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: Colors.white70,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Category Breakdown
-                    if (categoryTotals.isNotEmpty) ...[
-                      Text(
-                        'By Category',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      ...categoryTotals.entries.map((entry) {
-                        final percentage = (entry.value / total * 100);
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CategoryIcon.getIcon(entry.key),
-                            title: Text(entry.key),
-                            subtitle: LinearProgressIndicator(
-                              value: percentage / 100,
-                              backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '\$${entry.value.toStringAsFixed(2)}',
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium,
-                                ),
-                                Text(
-                                  '${percentage.toStringAsFixed(1)}%',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
+                  if (monthExpenses.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.bar_chart,
+                            size: 64,
+                            color: Colors.grey[400],
                           ),
-                        );
-                      }),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No expenses for this month',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Total Card
+                      GFCard(
+                        color: Theme.of(context).colorScheme.primary,
+                        content: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Total Expenses',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '\$${total.toStringAsFixed(2)}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displayMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${monthExpenses.length} expenses',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Colors.white70,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 16),
-                    ],
 
-                    // Member Breakdown
-                    if (memberTotals.isNotEmpty) ...[
-                      Text(
-                        'By Member',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      ...memberTotals.entries.map((entry) {
-                        final percentage = (entry.value / total * 100);
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              child: Text(
-                                entry.key[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white),
+                      // Category Breakdown
+                      if (categoryTotals.isNotEmpty) ...[
+                        Text(
+                          'By Category',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        ...categoryTotals.entries.map((entry) {
+                          final percentage = (entry.value / total * 100);
+                          return GFCard(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            content: ListTile(
+                              leading: CategoryIcon.getIcon(entry.key),
+                              title: Text(entry.key),
+                              subtitle: GFProgressBar(
+                                percentage: percentage,
+                                backgroundColor: Colors.grey[200]!,
+                                progressBarColor: Theme.of(context).colorScheme.primary,
+                                lineHeight: 8,
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '\$${entry.value.toStringAsFixed(2)}',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  Text(
+                                    '${percentage.toStringAsFixed(1)}%',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
                               ),
                             ),
-                            title: Text(entry.key),
-                            subtitle: LinearProgressIndicator(
-                              value: percentage / 100,
-                              backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(context).colorScheme.secondary,
+                          );
+                        }),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Member Breakdown
+                      if (memberTotals.isNotEmpty) ...[
+                        Text(
+                          'By Member',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        ...memberTotals.entries.map((entry) {
+                          final percentage = (entry.value / total * 100);
+                          return GFCard(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            content: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
+                                child: Text(
+                                  entry.key[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              title: Text(entry.key),
+                              subtitle: GFProgressBar(
+                                percentage: percentage,
+                                backgroundColor: Colors.grey[200]!,
+                                progressBarColor: Theme.of(context).colorScheme.secondary,
+                                lineHeight: 8,
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '\$${entry.value.toStringAsFixed(2)}',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  Text(
+                                    '${percentage.toStringAsFixed(1)}%',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
                               ),
                             ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '\$${entry.value.toStringAsFixed(2)}',
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium,
-                                ),
-                                Text(
-                                  '${percentage.toStringAsFixed(1)}%',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ],
                     ],
-                  ],
-                );
-              },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(child: Text('Error: $error')),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(child: Text('Error: $error')),
             ),
           ),
         ],
@@ -249,11 +254,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     final Map<String, double> totals = {};
     for (var expense in expenses) {
       if (expense.memberId != null) {
-        final member = members.firstWhere(
-          (m) => m.id == expense.memberId,
-          orElse: () => members.first,
-        );
-        totals[member.name] = (totals[member.name] ?? 0.0) + expense.amount;
+        try {
+          final member = members.firstWhere(
+            (m) => m.id == expense.memberId,
+          );
+          totals[member.name] = (totals[member.name] ?? 0.0) + expense.amount;
+        } catch (e) {
+          totals['Unassigned'] = (totals['Unassigned'] ?? 0.0) + expense.amount;
+        }
       } else {
         totals['Unassigned'] = (totals['Unassigned'] ?? 0.0) + expense.amount;
       }
@@ -292,15 +300,15 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   }
 
   Future<void> _exportData(BuildContext context, String format) async {
-    final expenseService = Provider.of<ExpenseService>(context, listen: false);
+    final expensesAsync = ref.read(expensesProvider);
     final exportService = ExportService();
 
     try {
+      final expenses = await expensesAsync.value ?? [];
       if (format == 'csv') {
-        await exportService.exportToCSV(expenseService.expenses);
+        await exportService.exportToCSV(expenses);
       } else {
-        await exportService.exportToPDF(
-            expenseService.expenses, _selectedMonth);
+        await exportService.exportToPDF(expenses, _selectedMonth);
       }
 
       if (context.mounted) {
